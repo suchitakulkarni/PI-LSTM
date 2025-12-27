@@ -1,10 +1,6 @@
-streamlit
 pandas
 scikit-learn
 numpy 
-seaborn
 matplotlib
-load_dotenv
 torch 
 plotly
-
