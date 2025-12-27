@@ -32,7 +32,7 @@ This project demonstrates working principles of anomaly detection in a physics i
 - Inject more realistic signals with drift, glitches etc. 
 
 ## Technologies
-Python, pandas, scikit-learn, matplotlib
+Python, pytorch, pandas, scikit-learn, matplotlib
 
 ---
 
