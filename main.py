@@ -8,24 +8,23 @@ import os
 import sys
 
 # Ensure imports from sibling files work
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+#sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from config import Config
-from model import LSTMAutoencoder
-from utils import (
-    simulate_harmonic_oscillator,
+from src.config import Config
+from src.model import LSTMAutoencoder
+from src.train import train_model
+from src.dataset import (simulate_harmonic_oscillator,
     inject_perturbations,
-    prepare_data,
-    train_model,     
-    evaluate_model, 
+    prepare_data)
+from src.evaluate import evaluate_model    
+from src.visualise import (
     plot_physics_comparison_results, 
     plot_reconstruction_comparison,
-    tune_threshold_f1, # Needed for True Positive calculation
+    tune_threshold_f1, 
     plot_history,
     plot_detected_anomalies_comparison,
     plot_phase_shift_analysis,
-    analyze_phase_shift,
-    inject_physics_violating_perturbations
+    analyze_phase_shift
 )
 
 def run_single_model(config, X_train_tensor, train_loader, test_loader, physics_loss_weight, device, run_name, anomaly_idxs):
@@ -55,8 +54,8 @@ def run_single_model(config, X_train_tensor, train_loader, test_loader, physics_
         device=device
     )
     if physics_loss_weight > 0:
-        plot_history(history, save_path = os.path.join(config.RESULTS_DIR, 'physics_loss.pdf'))
-    else: plot_history(history, save_path = os.path.join(config.RESULTS_DIR, 'mse_loss.pdf'))
+        plot_history(history, save_path = os.path.join(config.RESULTS_DIR, 'physics_loss.png'))
+    else: plot_history(history, save_path = os.path.join(config.RESULTS_DIR, 'mse_loss.png'))
 
     # Evaluate the model
     errors_np, reconstructed_windows = evaluate_model(
@@ -172,7 +171,7 @@ def run_comparison(config: Config):
         window_size=config.WINDOW_SIZE,
         anomaly_idxs=anomaly_idxs,
         pinn_weight=pinn_weight,
-        filename=os.path.join(config.RESULTS_DIR, "physics_anomaly_score_comparison.pdf")
+        filename=os.path.join(config.RESULTS_DIR, "physics_anomaly_score_comparison.png")
     )
     
     # Plot 2: Reconstruction Comparison
@@ -183,7 +182,7 @@ def run_comparison(config: Config):
         recon_standard_windows=recon_standard_windows,
         window_size=config.WINDOW_SIZE,
         anomaly_idxs=anomaly_idxs,
-        filename=os.path.join(config.RESULTS_DIR, "reconstruction_comparison.pdf")
+        filename=os.path.join(config.RESULTS_DIR, "reconstruction_comparison.png")
     )
     # Plot 3: Detected Anomalies Overlay
     print("\n--- Generating Detected Anomalies Comparison Plot (detected_anomalies_comparison.png) ---")
@@ -195,7 +194,7 @@ def run_comparison(config: Config):
         threshold_standard=threshold_standard,
         window_size=config.WINDOW_SIZE,
         anomaly_idxs=anomaly_idxs,
-        filename=os.path.join(config.RESULTS_DIR, "detected_anomalies_comparison.pdf")
+        filename=os.path.join(config.RESULTS_DIR, "detected_anomalies_comparison.png")
     )
     
     print("\n--- Comparison Pipeline Finished Successfully ---")
