@@ -25,7 +25,7 @@ This project demonstrates working principles of anomaly detection in a physics i
 ## How to Run
 1. Clone repo  
 2. Create environment: `pip install -r requirements.txt`  
-3. Run `main.py` for detailed analysis and model training. You can run this via google colab.
+3. Run `main.py` for detailed analysis and model training. 
 
 ## Future Work
 - Implement uncertainty quantification.
