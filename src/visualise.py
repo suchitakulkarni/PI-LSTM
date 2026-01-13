@@ -508,3 +508,198 @@ def inject_physics_violating_perturbations(x, num_anomalies=10, duration=5, omeg
                     x_anomalous[idx] += np.random.choice([-1,1])*severity * i / duration
         
         return x_anomalous, anomaly_indices
+
+def plot_physics_violation_types(x_clean, x_anomalous, anomaly_dict, window_size, 
+                                  filename="results/physics_violation_types.png"):
+    """
+    Visualizes different types of physics violations in the signal.
+    
+    Args:
+        x_clean: Clean signal
+        x_anomalous: Signal with anomalies
+        anomaly_dict: Dictionary with keys 'frequency', 'phase', 'damping'
+        window_size: Window size for highlighting
+        filename: Save path
+    """
+    fig, axes = plt.subplots(4, 1, figsize=(14, 12), sharex=True)
+    time_steps = np.arange(len(x_anomalous))
+    
+    # Plot 1: Clean signal
+    axes[0].plot(time_steps, x_clean, 'b-', linewidth=1, alpha=0.7)
+    axes[0].set_title('Original Clean Signal')
+    axes[0].set_ylabel('Amplitude')
+    axes[0].grid(True, alpha=0.3)
+    
+    # Plot 2: Anomalous signal with all violations marked
+    axes[1].plot(time_steps, x_anomalous, 'k-', linewidth=1, alpha=0.7)
+    
+    if 'frequency' in anomaly_dict:
+        for idx in anomaly_dict['frequency']:
+            axes[1].axvspan(idx, idx + 20, alpha=0.3, color='red', label='Freq' if idx == anomaly_dict['frequency'][0] else '')
+    
+    if 'phase' in anomaly_dict:
+        axes[1].scatter(anomaly_dict['phase'], x_anomalous[anomaly_dict['phase']], 
+                       color='blue', marker='v', s=100, label='Phase Jump', zorder=5)
+    
+    if 'damping' in anomaly_dict:
+        for idx in anomaly_dict['damping']:
+            axes[1].axvspan(idx, idx + 30, alpha=0.3, color='green', label='Damp' if idx == anomaly_dict['damping'][0] else '')
+    
+    axes[1].set_title('Anomalous Signal with Physics Violations')
+    axes[1].set_ylabel('Amplitude')
+    axes[1].legend(loc='upper right')
+    axes[1].grid(True, alpha=0.3)
+    
+    # Plot 3: Difference (anomalous - clean)
+    diff = x_anomalous - x_clean
+    axes[2].plot(time_steps, diff, 'r-', linewidth=1)
+    axes[2].set_title('Difference (Anomalous - Clean)')
+    axes[2].set_ylabel('Difference')
+    axes[2].grid(True, alpha=0.3)
+    axes[2].axhline(0, color='k', linestyle='--', alpha=0.5)
+    
+    # Plot 4: Local frequency estimate (using zero-crossings)
+    # Simple frequency estimation
+    zero_crossings = np.where(np.diff(np.sign(x_anomalous)))[0]
+    if len(zero_crossings) > 1:
+        local_periods = np.diff(zero_crossings) * 2  # Full period = 2 * half period
+        local_freq = 2 * np.pi / (local_periods * 0.01)  # Assuming dt=0.01
+        axes[3].plot(zero_crossings[:-1], local_freq, 'go-', linewidth=1, markersize=3)
+        axes[3].axhline(2.0, color='b', linestyle='--', linewidth=2, label='True frequency')
+        axes[3].set_title('Estimated Local Frequency')
+        axes[3].set_ylabel('Frequency (rad/s)')
+        axes[3].legend()
+        axes[3].grid(True, alpha=0.3)
+    
+    axes[3].set_xlabel('Time Step')
+    
+    plt.tight_layout()
+    plt.savefig(filename, dpi=150)
+    plt.close()
+    print(f"Physics violation plot saved to {filename}")
+
+def plot_overfitting_analysis(history, physics_weight, 
+                               filename="results/overfitting_analysis.png"):
+    """
+    Comprehensive overfitting visualization.
+    """
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    epochs = np.arange(1, len(history['train_total']) + 1)
+    
+    # Plot 1: Total Loss (Train vs Val)
+    ax1 = axes[0, 0]
+    ax1.plot(epochs, history['train_total'], 'b-', linewidth=2, label='Train Total Loss')
+    ax1.plot(epochs, history['val_total'], 'r-', linewidth=2, label='Val Total Loss')
+    ax1.set_xlabel('Epoch')
+    ax1.set_ylabel('Total Loss')
+    ax1.set_title('Total Loss: Train vs Validation')
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+    ax1.set_yscale('log')
+    
+    # Highlight overfitting region (where val > train significantly)
+    overfitting_start = None
+    for i, gap in enumerate(history['overfitting_gap']):
+        if gap > 0.1 * history['train_total'][i]:  # 10% threshold
+            overfitting_start = i
+            break
+    if overfitting_start:
+        ax1.axvline(overfitting_start + 1, color='orange', linestyle='--', 
+                   linewidth=2, label=f'Overfitting starts ~{overfitting_start+1}')
+        ax1.legend()
+    
+    # Plot 2: MSE Loss (Train vs Val)
+    ax2 = axes[0, 1]
+    ax2.plot(epochs, history['train_mse'], 'b-', linewidth=2, label='Train MSE')
+    ax2.plot(epochs, history['val_mse'], 'r-', linewidth=2, label='Val MSE')
+    ax2.set_xlabel('Epoch')
+    ax2.set_ylabel('MSE Loss')
+    ax2.set_title('Reconstruction Loss: Train vs Validation')
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
+    ax2.set_yscale('log')
+    
+    # Plot 3: Physics Loss (Train vs Val)
+    ax3 = axes[1, 0]
+    if physics_weight > 0:
+        ax3.plot(epochs, history['train_physics'], 'b-', linewidth=2, label='Train Physics')
+        ax3.plot(epochs, history['val_physics'], 'r-', linewidth=2, label='Val Physics')
+        ax3.set_xlabel('Epoch')
+        ax3.set_ylabel('Physics Loss')
+        ax3.set_title(f'Physics Loss (Weight={physics_weight:.3f}): Train vs Validation')
+        ax3.legend()
+        ax3.grid(True, alpha=0.3)
+        ax3.set_yscale('log')
+    else:
+        ax3.text(0.5, 0.5, 'Physics Weight = 0\n(Standard Autoencoder)', 
+                ha='center', va='center', fontsize=14, transform=ax3.transAxes)
+        ax3.set_title('Physics Loss (Not Used)')
+    
+    # Plot 4: Overfitting Gap
+    ax4 = axes[1, 1]
+    ax4.plot(epochs, history['overfitting_gap'], 'purple', linewidth=2, label='Val - Train')
+    ax4.axhline(0, color='k', linestyle='--', linewidth=1, alpha=0.5)
+    ax4.fill_between(epochs, 0, history['overfitting_gap'], 
+                     where=(np.array(history['overfitting_gap']) > 0),
+                     alpha=0.3, color='red', label='Overfitting Region')
+    ax4.set_xlabel('Epoch')
+    ax4.set_ylabel('Loss Gap (Val - Train)')
+    ax4.set_title('Overfitting Gap Analysis')
+    ax4.legend()
+    ax4.grid(True, alpha=0.3)
+    
+    plt.suptitle(f'Overfitting Analysis (Physics Weight = {physics_weight:.3f})', 
+                 fontsize=16, y=0.995)
+    plt.tight_layout()
+    plt.savefig(filename, dpi=150)
+    plt.close()
+    print(f"Overfitting analysis saved to {filename}")
+
+
+def plot_generalization_metrics(history_pinn, history_standard, 
+                                 filename="results/generalization_comparison.png"):
+    """
+    Compare generalization between PINN and Standard AE.
+    """
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    
+    epochs_pinn = np.arange(1, len(history_pinn['train_total']) + 1)
+    epochs_std = np.arange(1, len(history_standard['train_total']) + 1)
+    
+    # Plot 1: Overfitting Gap Comparison
+    ax1 = axes[0]
+    ax1.plot(epochs_pinn, history_pinn['overfitting_gap'], 
+            'g-', linewidth=2, label='PINN')
+    ax1.plot(epochs_std, history_standard['overfitting_gap'], 
+            'r-', linewidth=2, label='Standard AE')
+    ax1.axhline(0, color='k', linestyle='--', linewidth=1, alpha=0.5)
+    ax1.set_xlabel('Epoch')
+    ax1.set_ylabel('Overfitting Gap (Val - Train)')
+    ax1.set_title('Generalization: PINN vs Standard AE')
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+    
+    # Plot 2: Final Gap Comparison (Bar Chart)
+    ax2 = axes[1]
+    final_gap_pinn = history_pinn['overfitting_gap'][-1]
+    final_gap_std = history_standard['overfitting_gap'][-1]
+    
+    bars = ax2.bar(['PINN', 'Standard AE'], 
+                   [final_gap_pinn, final_gap_std],
+                   color=['green', 'red'], alpha=0.7)
+    ax2.axhline(0, color='k', linestyle='--', linewidth=1)
+    ax2.set_ylabel('Final Overfitting Gap')
+    ax2.set_title('Final Generalization Performance')
+    ax2.grid(True, alpha=0.3, axis='y')
+    
+    # Add value labels on bars
+    for bar in bars:
+        height = bar.get_height()
+        ax2.text(bar.get_x() + bar.get_width()/2., height,
+                f'{height:.5f}',
+                ha='center', va='bottom' if height > 0 else 'top')
+    
+    plt.tight_layout()
+    plt.savefig(filename, dpi=150)
+    plt.close()
+    print(f"Generalization comparison saved to {filename}")
